@@ -2,8 +2,7 @@ package main;
 
 import (
 	"fmt"
-	"bufio"
-	"os"
+	"github.com/chzyer/readline"
 )
 
 func READ(input string) string {
@@ -23,17 +22,17 @@ func rep(input string) string {
 }
 
 func main() {
-	scanner := bufio.NewScanner(os.Stdin)
+	rl, err := readline.New("user> ")
+	if err != nil {
+		panic(err)
+	}
+	defer rl.Close()
 
 	for {
-		fmt.Print("user> ")
-		if !scanner.Scan() {
-			err := scanner.Err();
-			if err != nil {
-				fmt.Fprintln(os.Stderr, "error:", err)
-			}
+		line, err := rl.Readline()
+		if err != nil { // io.EOF
 			break
 		}
-		fmt.Println(rep(scanner.Text()))
+		fmt.Println(rep(line))
 	}
 }
