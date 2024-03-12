@@ -350,7 +350,7 @@ func readAtom(tokens *tokenizer) (MalType, error) {
 	} else if strings.HasPrefix(token, ":") {
 		return MalTypeKeyword(token[1:len(token)]), nil
 	} else if token == "nil" {
-		return MalTypeNil(0), nil
+		return MalTypeNil{}, nil
 	} else if token == "true" {
 		return MalTypeBoolean(true), nil
 	} else if token == "false" {
