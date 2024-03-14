@@ -1,8 +1,9 @@
-package common;
+package common
 
 import (
-	"strings"
+	"fmt"
 	"strconv"
+	"strings"
 )
 
 func PrStr(input MalType, print_readably bool) string {
@@ -31,14 +32,18 @@ func PrStr(input MalType, print_readably bool) string {
 		return prStr(input.(MalTypeString), print_readably)
 	case MalTypeSymbol:
 		return string(input.(MalTypeSymbol))
+	case MalTypeFunction:
+		return "#<function>"
 	default:
-		panic("invalid mal type")
+		panic(fmt.Sprintf("invalid mal type %T", input))
 	}
 }
 
 func prStr(input MalTypeString, print_readably bool) string {
 	var builder strings.Builder
-	builder.WriteByte('"')
+	if print_readably {
+		builder.WriteByte('"')
+	}
 
 	for _, char := range input {
 		if print_readably {
@@ -58,8 +63,10 @@ func prStr(input MalTypeString, print_readably bool) string {
 			builder.WriteRune(char)
 		}
 	}
-	
-	builder.WriteByte('"')
+
+	if print_readably {
+		builder.WriteByte('"')
+	}
 	return builder.String()
 }
 

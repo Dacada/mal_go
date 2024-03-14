@@ -10,6 +10,23 @@ func NewEnv(outer *Env) Env {
 	return Env{data, outer}
 }
 
+func NewEnvBind(outer *Env, binds []MalTypeSymbol, exprs []MalType) Env {
+	env := NewEnv(outer)
+	variadic := false
+	for i := 0; i < len(binds); i++ {
+		if variadic {
+			env.Set(binds[i], MalTypeList(exprs[i-1:]))
+			break
+		}
+		if binds[i] == MalTypeSymbol("&") {
+			variadic = true
+			continue
+		}
+		env.Set(binds[i], exprs[i])
+	}
+	return env
+}
+
 func (e *Env) Set(key MalTypeSymbol, value MalType) {
 	e.data[key] = value
 }
