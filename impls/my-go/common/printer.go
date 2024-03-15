@@ -34,6 +34,8 @@ func PrStr(input MalType, print_readably bool) string {
 		return string(input.(MalTypeSymbol))
 	case MalTypeFunction:
 		return "#<function>"
+	case MalTypeTCOFunction:
+		return "#<function>"
 	default:
 		panic(fmt.Sprintf("invalid mal type %T", input))
 	}

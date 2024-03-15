@@ -12,3 +12,9 @@ type MalTypeKeyword string
 type MalTypeString string
 type MalTypeSymbol string
 type MalTypeFunction func([]MalType) (MalType, error)
+type MalTypeTCOFunction struct {
+	Ast MalType
+	Params []MalTypeSymbol
+	Env Env
+	Fn MalTypeFunction
+}
