@@ -1,5 +1,9 @@
 package common
 
+import (
+	"errors"
+)
+
 type Env struct {
 	data  map[MalTypeSymbol]MalType
 	outer *Env
@@ -10,9 +14,10 @@ func NewEnv(outer *Env) Env {
 	return Env{data, outer}
 }
 
-func NewEnvBind(outer *Env, binds []MalTypeSymbol, exprs []MalType) Env {
+func NewEnvBind(outer *Env, binds []MalTypeSymbol, exprs []MalType) (Env, error) {
 	env := NewEnv(outer)
 	variadic := false
+	
 	for i := 0; i < len(binds); i++ {
 		if variadic {
 			env.Set(binds[i], MalTypeList(exprs[i-1:]))
@@ -22,9 +27,12 @@ func NewEnvBind(outer *Env, binds []MalTypeSymbol, exprs []MalType) Env {
 			variadic = true
 			continue
 		}
+		if len(binds) <= i || len(exprs) <= i {
+			return *outer, errors.New("invalid number of parameters for function")
+		}
 		env.Set(binds[i], exprs[i])
 	}
-	return env
+	return env, nil
 }
 
 func (e *Env) Set(key MalTypeSymbol, value MalType) {

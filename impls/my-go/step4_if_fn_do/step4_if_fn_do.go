@@ -188,7 +188,10 @@ func apply_fn(lst common.MalTypeList, env common.Env) (common.MalTypeFunction, e
 		names[i] = n
 	}
 	return common.MalTypeFunction(func(args []common.MalType) (common.MalType, error) {
-		new_env := common.NewEnvBind(&env, names, args)
+		new_env, err := common.NewEnvBind(&env, names, args)
+		if err != nil {
+			return nil, err
+		}
 		return EVAL(lst[1], new_env)
 	}), nil
 }

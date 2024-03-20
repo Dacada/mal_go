@@ -85,7 +85,10 @@ func apply(lst common.MalTypeList, env common.Env) (common.MalType, common.Env, 
 		if !ok {
 			return nil, env, false, errors.New(fmt.Sprintf("cannot call object of type %T", evaluated_list[0]))
 		}
-		new_env := common.NewEnvBind(&tco_fun.Env, tco_fun.Params, evaluated_list[1:])
+		new_env, err := common.NewEnvBind(&tco_fun.Env, tco_fun.Params, evaluated_list[1:])
+		if err != nil {
+			return nil, env, false, err
+		}
 		return tco_fun.Ast, new_env, true, nil
 	}
 }
@@ -205,7 +208,10 @@ func apply_fn(lst common.MalTypeList, env common.Env) (common.MalTypeTCOFunction
 	tco_fn.Params = names
 
 	tco_fn.Fn = common.MalTypeFunction(func(args []common.MalType) (common.MalType, error) {
-		new_env := common.NewEnvBind(&env, names, args)
+		new_env, err := common.NewEnvBind(&env, names, args)
+		if err != nil {
+			return nil, err
+		}
 		return EVAL(lst[1], new_env)
 	})
 	
