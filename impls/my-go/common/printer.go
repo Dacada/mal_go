@@ -11,27 +11,27 @@ func PrStr(input MalType, print_readably bool) string {
 		return ""
 	}
 
-	switch input.(type) {
+	switch i := input.(type) {
 	case MalTypeList, MalTypeVector:
 		return prList(input, print_readably)
 	case MalTypeHashMap:
-		return prMap(input.(MalTypeHashMap), print_readably)
+		return prMap(i, print_readably)
 	case MalTypeInteger:
-		return strconv.FormatInt(int64(input.(MalTypeInteger)), 10)
+		return strconv.FormatInt(int64(i), 10)
 	case MalTypeNil:
 		return "nil"
 	case MalTypeBoolean:
-		if input.(MalTypeBoolean) {
+		if i {
 			return "true"
 		} else {
 			return "false"
 		}
 	case MalTypeKeyword:
-		return ":" + string(input.(MalTypeKeyword))
+		return ":" + string(i)
 	case MalTypeString:
-		return prStr(input.(MalTypeString), print_readably)
+		return prStr(i, print_readably)
 	case MalTypeSymbol:
-		return string(input.(MalTypeSymbol))
+		return string(i)
 	case MalTypeFunction:
 		return "#<function>"
 	case MalTypeTCOFunction:

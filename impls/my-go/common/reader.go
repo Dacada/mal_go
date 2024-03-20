@@ -1,4 +1,4 @@
-package common;
+package common
 
 import (
 	"strconv"
@@ -27,7 +27,7 @@ func (t *tokenizer) unadvanceChar(c rune) {
 
 func (t *tokenizer) advanceChar() (rune, error) {
 	if t.HasPrevChar {
-		t.HasPrevChar = false;
+		t.HasPrevChar = false
 		return t.PrevChar, nil
 	}
 	
@@ -74,7 +74,7 @@ func (t *tokenizer) next() (string, error) {
 
 	for {
 		if curr != ',' && !unicode.IsSpace(curr) {
-			break;
+			break
 		}
 
 		if t.Input == "" {
@@ -171,7 +171,7 @@ func (t *tokenizer) next() (string, error) {
 			break
 		}
 
-		builder.WriteRune(r);
+		builder.WriteRune(r)
 	}
 	return builder.String(), nil
 }
