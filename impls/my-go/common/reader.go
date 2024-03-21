@@ -150,9 +150,19 @@ func (t *tokenizer) next() (string, error) {
 	}
 
 	if curr == ';' {
-		t.Input = ""
-		ret := t.Input
-		return ret, nil
+		var builder strings.Builder
+		builder.WriteByte(';')
+		for {
+			r, err := t.advanceChar()
+			builder.WriteRune(r)
+			if err != nil {
+				return "", err
+			}
+			if r == '\n' {
+				break
+			}
+		}
+		return builder.String(), nil
 	}
 
 	var builder strings.Builder
@@ -188,6 +198,16 @@ func readForm(tokens *tokenizer) (MalType, error) {
 	}
 	if first == "" {
 		return nil, nil
+	}
+	for first[0] == ';' {
+		tokens.next()
+		first, err = tokens.peek()
+		if err != nil {
+			return nil, err
+		}
+		if first == "" {
+			return nil, nil
+		}
 	}
 
 	if first == "(" || first == "[" {
