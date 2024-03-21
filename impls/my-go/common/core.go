@@ -7,33 +7,92 @@ import (
 	"strings"
 )
 
-func assert_int_args(args []MalType) error {
-	for i, element := range args {
-		res, ok := element.(MalTypeInteger)
-		if !ok {
-			return errors.New(fmt.Sprintf("argument %d expected to be of type %T but was %T", i, res, element))
+func make_type_err(found MalType, expected MalType) error {
+	return errors.New(fmt.Sprintf("expected argument of type %T but found %T", expected, found))
+}
+
+func assert_int_arg(arg MalType) (MalTypeInteger, error) {
+	res, ok := arg.(MalTypeInteger)
+	if ok {
+		return res, nil
+	}
+	return res, make_type_err(arg, res)
+}
+
+func assert_string_arg(arg MalType) (MalTypeString, error) {
+	res, ok := arg.(MalTypeString)
+	if ok {
+		return res, nil
+	}
+	return res, make_type_err(arg, res)
+}
+
+func assert_atom_arg(arg MalType) (MalTypeAtom, error) {
+	res, ok := arg.(MalTypeAtom)
+	if ok {
+		return res, nil
+	}
+	return res, make_type_err(arg, res)
+}
+
+func assert_function_arg(arg MalType) (MalTypeFunction, error) {
+	res, ok := arg.(MalTypeFunction)
+	if ok {
+		return res, nil
+	}
+	tco, ok := arg.(MalTypeTCOFunction)
+	if ok {
+		return tco.Fn, nil
+	}
+	return res, make_type_err(arg, res)
+}
+
+func assert_int_args(args []MalType) ([]MalTypeInteger, error) {
+	res := make([]MalTypeInteger, len(args))
+	for i, arg := range args {
+		n, err := assert_int_arg(arg)
+		if err != nil {
+			return nil, err
 		}
+		res[i] = n
+	}
+	return res, nil
+}
+
+func assert_len_args(args []MalType, min int, max int) error {
+	if (min > 0 && len(args) < min) || (max > 0 && len(args) > max) {
+		var err string
+		if min > 0 && max > 0 {
+			if min == max {
+				err = fmt.Sprintf("expected exactly %d arguments but found %d", min, len(args))
+			} else {
+				err = fmt.Sprintf("expected between %d and %d arguments but found %d", min, max, len(args))
+			}
+		} else if min > 0 {
+			err = fmt.Sprintf("expected at least %d arguments but found %d", min, len(args))
+		} else if max > 0 {
+			err = fmt.Sprintf("expected less than %d arguments but found %d", max, len(args))
+		} else {
+			return nil
+		}
+		return errors.New(err)
 	}
 	return nil
 }
 
 func assert_nonempty_args(args []MalType) error {
-	if len(args) == 0 {
-		return errors.New("unexpected number of arguments for builtin function, expected at least 1")
-	}
-	return nil
+	return assert_len_args(args, 1, -1)
 }
 
 func sum_fun(args []MalType) (MalType, error) {
-	err := assert_int_args(args)
+	ints, err := assert_int_args(args)
 	if err != nil {
 		return nil, err
 	}
 
 	res := int64(0)
-	for _, element := range args {
-		int_element := element.(MalTypeInteger)
-		res += int64(int_element)
+	for _, n := range ints {
+		res += int64(n)
 	}
 
 	return MalTypeInteger(res), nil
@@ -43,26 +102,29 @@ func sub_fun(args []MalType) (MalType, error) {
 	if len(args) == 0 {
 		return MalTypeInteger(0), nil
 	}
-	err := assert_int_args(args)
+
+	first, err := assert_int_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
 	
 	sum_res, err := sum_fun(args[1:])
 	if err != nil {
 		return nil, err
 	}
 
-	return MalTypeInteger(args[0].(MalTypeInteger) - sum_res.(MalTypeInteger)), nil
+	return MalTypeInteger(first - sum_res.(MalTypeInteger)), nil
 }
 
 func mul_fun(args []MalType) (MalType, error) {
-	err := assert_int_args(args)
+	ints, err := assert_int_args(args)
 	if err != nil {
 		return nil, err
 	}
 
 	res := int64(1)
-	for _, element := range args {
-		int_element := element.(MalTypeInteger)
-		res *= int64(int_element)
+	for _, n := range ints {
+		res *= int64(n)
 	}
 
 	return MalTypeInteger(res), nil
@@ -73,20 +135,20 @@ func div_fun(args []MalType) (MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = assert_int_args(args)
+	ints, err := assert_int_args(args)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(args) == 1 {
-		return MalTypeInteger(1 / int64(args[0].(MalTypeInteger))), nil
+		return MalTypeInteger(1 / ints[0]), nil
 	}
 
 	rest, err := mul_fun(args[1:])
 	if err != nil {
 		return nil, err
 	}
-	return MalTypeInteger(args[0].(MalTypeInteger) / rest.(MalTypeInteger)), nil
+	return MalTypeInteger(ints[0] / rest.(MalTypeInteger)), nil
 }
 
 func pr_str_fun(args []MalType) (MalType, error) {
@@ -177,8 +239,9 @@ func get_as_mal_array(x MalType) ([]MalType, bool) {
 }
 
 func eq_fun(args []MalType) (MalType, error) {
-	if len(args) < 2 {
-		return nil, errors.New("expected at least two arguments")
+	err := assert_len_args(args, 2, -1)
+	if err != nil {
+		return nil, err
 	}
 
 	new_args := make([]MalType, 2)
@@ -275,18 +338,15 @@ func eq_fun(args []MalType) (MalType, error) {
 }
 
 func get_two_ints_for_cmp(args []MalType) (int64, int64, error) {
-	if len(args) < 2 {
-		return 0, 0, errors.New("expected at least two arguments")
+	err := assert_len_args(args, 2, -1)
+	if err != nil {
+		return 0, 0, err
 	}
-	n1, ok := args[0].(MalTypeInteger)
-	if !ok {
-		return 0, 0, errors.New(fmt.Sprintf("expected first argument to be %T but is %T", n1, args[0]))
+	ints, err := assert_int_args(args)
+	if err != nil {
+		return 0, 0, err
 	}
-	n2, ok := args[1].(MalTypeInteger)
-	if !ok {
-		return 0, 0, errors.New(fmt.Sprintf("expected second argument to be %T but is %T", n2, args[1]))
-	}
-	return int64(n1), int64(n2), nil
+	return int64(ints[0]), int64(ints[1]), nil
 }
 
 func lt_fun(args []MalType) (MalType, error) {
@@ -322,25 +382,25 @@ func ge_fun(args []MalType) (MalType, error) {
 }
 
 func read_string_fun(args []MalType) (MalType, error) {
-	if len(args) != 1 {
-		return nil, errors.New("expected exactly one argument")
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
 	}
-	arg := args[0]
-	arg_str, ok := arg.(MalTypeString)
-	if !ok {
-		return nil, errors.New("expected string argument")
+	arg_str, err := assert_string_arg(args[0])
+	if err != nil {
+		return nil, err
 	}
 	return ReadStr(string(arg_str))
 }
 
 func slurp_fun(args []MalType) (MalType, error) {
-	if len(args) != 1 {
-		return nil, errors.New("expected exactly one argument")
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
 	}
-	arg := args[0]
-	arg_str, ok := arg.(MalTypeString)
-	if !ok {
-		return nil, errors.New("expected string argument")
+	arg_str, err := assert_string_arg(args[0])
+	if err != nil {
+		return nil, err
 	}
 
 	contents, err := os.ReadFile(string(arg_str))
@@ -352,21 +412,22 @@ func slurp_fun(args []MalType) (MalType, error) {
 }
 
 func atom_fun(args []MalType) (MalType, error) {
-	if len(args) != 1 {
-		return nil, errors.New("expected exactly one argument")
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
 	}
 	arg := args[0]
 	return MalTypeAtom(&arg), nil
 }
 
 func get_arg_as_atom(args []MalType) (MalTypeAtom, error) {
-	if len(args) != 1 {
-		return nil, errors.New("expected exactly one argument")
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
 	}
-	arg := args[0]
-	arg_atom, ok := arg.(MalTypeAtom)
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("expected argument of type %T but is %T", arg_atom, arg))
+	arg_atom, err := assert_atom_arg(args[0])
+	if err != nil {
+		return nil, err
 	}
 	return arg_atom, nil
 }
@@ -386,33 +447,31 @@ func deref_fun(args []MalType) (MalType, error) {
 }
 
 func reset_fun(args []MalType) (MalType, error) {
-	if len(args) != 2 {
-		return nil, errors.New("expected exactly two arguments")
+	err := assert_len_args(args, 2, 2)
+	if err != nil {
+		return nil, err
 	}
-	atom, ok := args[0].(MalTypeAtom)
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("expected first argument to be %T but was %T", atom, args[0]))
+	atom, err := assert_atom_arg(args[0])
+	if err != nil {
+		return nil, err
 	}
 	*atom = args[1]
 	return args[1], nil
 }
 
 func swap_fun(args []MalType) (MalType, error) {
-	if len(args) < 2 {
-		return nil, errors.New("expected at least two arguments")
+	err := assert_len_args(args, 2, -1)
+	if err != nil {
+		return nil, err
 	}
-	atom, ok := args[0].(MalTypeAtom)
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("expected first argument to be %T but was %T", atom, args[0]))
+	atom, err := assert_atom_arg(args[0])
+	if err != nil {
+		return nil, err
 	}
 
-	fun, ok := args[1].(MalTypeFunction)
-	if !ok {
-		tco_fun, ok := args[1].(MalTypeTCOFunction)
-		if !ok {
-			return nil, errors.New(fmt.Sprintf("expected second argument to be %T or %T but was %T", fun, tco_fun, args[1]))
-		}
-		fun = tco_fun.Fn
+	fun, err := assert_function_arg(args[1])
+	if err != nil {
+		return nil, err
 	}
 
 	new_args := make([]MalType, len(args)-1)
