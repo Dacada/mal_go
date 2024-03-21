@@ -36,9 +36,18 @@ func PrStr(input MalType, print_readably bool) string {
 		return "#<function>"
 	case MalTypeTCOFunction:
 		return "#<function>"
+	case MalTypeAtom:
+		return prAtom(i, print_readably)
 	default:
 		panic(fmt.Sprintf("invalid mal type %T", input))
 	}
+}
+
+func prAtom(input MalTypeAtom, print_readably bool) string {
+	var l MalTypeList
+	l = append(l, MalTypeSymbol("atom"))
+	l = append(l, *input)
+	return prList(l, print_readably)
 }
 
 func prStr(input MalTypeString, print_readably bool) string {

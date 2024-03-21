@@ -18,3 +18,4 @@ type MalTypeTCOFunction struct {
 	Env Env
 	Fn MalTypeFunction
 }
+type MalTypeAtom *MalType

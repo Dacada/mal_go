@@ -3,6 +3,7 @@ package common
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -109,7 +110,7 @@ func prn_fun(args []MalType) (MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	println(string(str.(MalTypeString)))
+	fmt.Println(string(str.(MalTypeString)))
 	return MalTypeNil{}, nil
 }
 
@@ -118,7 +119,7 @@ func println_fun(args []MalType) (MalType, error) {
 	for i, arg := range args {
 		strs[i] = PrStr(arg, false)
 	}
-	println(strings.Join(strs, " "))
+	fmt.Println(strings.Join(strs, " "))
 	return MalTypeNil{}, nil
 }
 
@@ -320,6 +321,113 @@ func ge_fun(args []MalType) (MalType, error) {
 	return MalTypeBoolean(n1 >= n2), nil
 }
 
+func read_string_fun(args []MalType) (MalType, error) {
+	if len(args) != 1 {
+		return nil, errors.New("expected exactly one argument")
+	}
+	arg := args[0]
+	arg_str, ok := arg.(MalTypeString)
+	if !ok {
+		return nil, errors.New("expected string argument")
+	}
+	return ReadStr(string(arg_str))
+}
+
+func slurp_fun(args []MalType) (MalType, error) {
+	if len(args) != 1 {
+		return nil, errors.New("expected exactly one argument")
+	}
+	arg := args[0]
+	arg_str, ok := arg.(MalTypeString)
+	if !ok {
+		return nil, errors.New("expected string argument")
+	}
+
+	contents, err := os.ReadFile(string(arg_str))
+	if err != nil {
+		return nil, err
+	}
+
+	return MalTypeString(string(contents)), nil
+}
+
+func atom_fun(args []MalType) (MalType, error) {
+	if len(args) != 1 {
+		return nil, errors.New("expected exactly one argument")
+	}
+	arg := args[0]
+	return MalTypeAtom(&arg), nil
+}
+
+func get_arg_as_atom(args []MalType) (MalTypeAtom, error) {
+	if len(args) != 1 {
+		return nil, errors.New("expected exactly one argument")
+	}
+	arg := args[0]
+	arg_atom, ok := arg.(MalTypeAtom)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("expected argument of type %T but is %T", arg_atom, arg))
+	}
+	return arg_atom, nil
+}
+	
+
+func atom_pred_fun(args []MalType) (MalType, error) {
+	_, err := get_arg_as_atom(args)
+	return MalTypeBoolean(err == nil), nil
+}
+
+func deref_fun(args []MalType) (MalType, error) {
+	atom, err := get_arg_as_atom(args)
+	if err != nil {
+		return nil, err
+	}
+	return *atom, nil
+}
+
+func reset_fun(args []MalType) (MalType, error) {
+	if len(args) != 2 {
+		return nil, errors.New("expected exactly two arguments")
+	}
+	atom, ok := args[0].(MalTypeAtom)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("expected first argument to be %T but was %T", atom, args[0]))
+	}
+	*atom = args[1]
+	return args[1], nil
+}
+
+func swap_fun(args []MalType) (MalType, error) {
+	if len(args) < 2 {
+		return nil, errors.New("expected at least two arguments")
+	}
+	atom, ok := args[0].(MalTypeAtom)
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("expected first argument to be %T but was %T", atom, args[0]))
+	}
+
+	fun, ok := args[1].(MalTypeFunction)
+	if !ok {
+		tco_fun, ok := args[1].(MalTypeTCOFunction)
+		if !ok {
+			return nil, errors.New(fmt.Sprintf("expected second argument to be %T or %T but was %T", fun, tco_fun, args[1]))
+		}
+		fun = tco_fun.Fn
+	}
+
+	new_args := make([]MalType, len(args)-1)
+	new_args[0] = *atom
+	for i := 0; i<len(args)-2; i++ {
+		new_args[i+1] = args[i+2]
+	}
+	res, err := fun(new_args)
+	if err != nil {
+		return nil, err
+	}
+	*atom = res
+	return res, nil
+}
+
 func Ns() map[string]func([]MalType)(MalType, error) {
 	res := make(map[string]func([]MalType)(MalType, error))
 	res["+"] = sum_fun
@@ -339,5 +447,12 @@ func Ns() map[string]func([]MalType)(MalType, error) {
 	res["pr-str"] = pr_str_fun
 	res["str"] = str_fun
 	res["println"] = println_fun
+	res["read-string"] = read_string_fun
+	res["slurp"] = slurp_fun
+	res["atom"] = atom_fun
+	res["atom?"] = atom_pred_fun
+	res["deref"] = deref_fun
+	res["reset!"] = reset_fun
+	res["swap!"] = swap_fun
 	return res
 }
