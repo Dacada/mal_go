@@ -27,6 +27,26 @@ func assert_string_arg(arg MalType) (MalTypeString, error) {
 	return res, make_type_err(arg, res)
 }
 
+func assert_list_arg(arg MalType) (MalTypeList, error) {
+	res, ok := arg.(MalTypeList)
+	if ok {
+		return res, nil
+	}
+	return res, make_type_err(arg, res)
+}
+
+func assert_list_or_vec_arg(arg MalType) ([]MalType, error) {
+	res, ok := arg.(MalTypeList)
+	if ok {
+		return res, nil
+	}
+	res_vec, ok := arg.(MalTypeVector)
+	if ok {
+		return res_vec, nil
+	}
+	return res, make_type_err(arg, res)
+}
+
 func assert_atom_arg(arg MalType) (MalTypeAtom, error) {
 	res, ok := arg.(MalTypeAtom)
 	if ok {
@@ -55,6 +75,18 @@ func assert_int_args(args []MalType) ([]MalTypeInteger, error) {
 			return nil, err
 		}
 		res[i] = n
+	}
+	return res, nil
+}
+
+func assert_list_or_vec_args(args []MalType) ([][]MalType, error) {
+	res := make([][]MalType, len(args))
+	for i, arg := range args {
+		l, err := assert_list_or_vec_arg(arg)
+		if err != nil {
+			return nil, err
+		}
+		res[i] = l
 	}
 	return res, nil
 }
@@ -487,6 +519,60 @@ func swap_fun(args []MalType) (MalType, error) {
 	return res, nil
 }
 
+func cons_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 2, -1)
+	if err != nil {
+		return nil, err
+	}
+	arr, err := assert_list_or_vec_arg(args[1])
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]MalType, len(arr)+1)
+	copy(res[1:], arr)
+	res[0] = args[0]
+	return MalTypeList(res), nil
+}
+
+func concat_fun(args []MalType) (MalType, error) {
+	args_lists, err := assert_list_or_vec_args(args)
+	if err != nil {
+		return nil, err
+	}
+
+	n := 0
+	for _, lst := range(args_lists) {
+		n += len(lst)
+	}
+
+	res := make([]MalType, n)
+	n = 0
+	for _, lst := range(args_lists) {
+		for _, x := range(lst) {
+			res[n] = x
+			n += 1
+		}
+	}
+
+	return MalTypeList(res), nil
+}
+
+func vec_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	arr, err := assert_list_or_vec_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]MalType, len(arr))
+	copy(res, arr)
+	return MalTypeVector(res), nil
+}
+
 func Ns() map[string]func([]MalType)(MalType, error) {
 	res := make(map[string]func([]MalType)(MalType, error))
 	res["+"] = sum_fun
@@ -513,5 +599,8 @@ func Ns() map[string]func([]MalType)(MalType, error) {
 	res["deref"] = deref_fun
 	res["reset!"] = reset_fun
 	res["swap!"] = swap_fun
+	res["cons"] = cons_fun
+	res["concat"] = concat_fun
+	res["vec"] = vec_fun
 	return res
 }
