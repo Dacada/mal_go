@@ -33,8 +33,11 @@ func PrStr(input MalType, print_readably bool) string {
 	case MalTypeSymbol:
 		return string(i)
 	case MalTypeFunction:
-		return "#<function>"
+		return "#<bare function>"
 	case MalTypeTCOFunction:
+		if i.IsMacro {
+			return "#<macro>"
+		}
 		return "#<function>"
 	case MalTypeAtom:
 		return prAtom(i, print_readably)

@@ -51,3 +51,7 @@ func (e Env) Get(key MalTypeSymbol) (MalType, bool) {
 		curr = *curr.outer
 	}
 }
+
+func (e Env) GetData() map[MalTypeSymbol]MalType {
+	return e.data
+}

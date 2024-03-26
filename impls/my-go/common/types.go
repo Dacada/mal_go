@@ -16,6 +16,7 @@ type MalTypeTCOFunction struct {
 	Ast MalType
 	Params []MalTypeSymbol
 	Env Env
+	IsMacro bool
 	Fn MalTypeFunction
 }
 type MalTypeAtom *MalType

@@ -11,6 +11,11 @@ func make_type_err(found MalType, expected MalType) error {
 	return errors.New(fmt.Sprintf("expected argument of type %T but found %T", expected, found))
 }
 
+func arg_is_nil(arg MalType) bool {
+	_, res := arg.(MalTypeNil)
+	return res
+}
+
 func assert_int_arg(arg MalType) (MalTypeInteger, error) {
 	res, ok := arg.(MalTypeInteger)
 	if ok {
@@ -573,6 +578,61 @@ func vec_fun(args []MalType) (MalType, error) {
 	return MalTypeVector(res), nil
 }
 
+func nth_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 2, 2)
+	if err != nil {
+		return nil, err
+	}
+	arr, err := assert_list_or_vec_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	n, err := assert_int_arg(args[1])
+	if err != nil {
+		return nil, err
+	}
+	if len(arr) <= int(n) {
+		return nil, errors.New(fmt.Sprintf("call to nth with out of range parameter %d (length is %d)", n, len(arr)))
+	}
+	return arr[n], nil
+}
+
+func first_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	if arg_is_nil(args[0]) {
+		return MalTypeNil{}, nil
+	}
+	arr, err := assert_list_or_vec_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	if len(arr) == 0 {
+		return MalTypeNil{}, nil
+	}
+	return arr[0], nil
+}
+
+func rest_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	if arg_is_nil(args[0]) {
+		return MalTypeList([]MalType{}), nil
+	}
+	arr, err := assert_list_or_vec_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	if len(arr) == 0 {
+		return MalTypeList([]MalType{}), nil
+	}
+	return MalTypeList(arr[1:]), nil
+}
+
 func Ns() map[string]func([]MalType)(MalType, error) {
 	res := make(map[string]func([]MalType)(MalType, error))
 	res["+"] = sum_fun
@@ -602,5 +662,8 @@ func Ns() map[string]func([]MalType)(MalType, error) {
 	res["cons"] = cons_fun
 	res["concat"] = concat_fun
 	res["vec"] = vec_fun
+	res["nth"] = nth_fun
+	res["first"] = first_fun
+	res["rest"] = rest_fun
 	return res
 }

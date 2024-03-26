@@ -9,3 +9,4 @@ step4_if_fn_do/step4_if_fn_do: step4_if_fn_do/step4_if_fn_do.go common/printer.g
 step5_tco/step5_tco: step5_tco/step5_tco.go common/printer.go common/reader.go common/types.go common/env.go common/core.go
 step6_file/step6_file: step6_file/step6_file.go common/printer.go common/reader.go common/types.go common/env.go common/core.go
 step7_quote/step7_quote: step7_quote/step7_quote.go common/printer.go common/reader.go common/types.go common/env.go common/core.go
+step8_macros/step8_macros: step8_macros/step8_macros.go common/printer.go common/reader.go common/types.go common/env.go common/core.go
