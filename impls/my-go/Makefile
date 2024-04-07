@@ -10,3 +10,4 @@ step5_tco/step5_tco: step5_tco/step5_tco.go common/printer.go common/reader.go c
 step6_file/step6_file: step6_file/step6_file.go common/printer.go common/reader.go common/types.go common/env.go common/core.go
 step7_quote/step7_quote: step7_quote/step7_quote.go common/printer.go common/reader.go common/types.go common/env.go common/core.go
 step8_macros/step8_macros: step8_macros/step8_macros.go common/printer.go common/reader.go common/types.go common/env.go common/core.go
+step9_try/step9_try: step9_try/step9_try.go common/printer.go common/reader.go common/types.go common/env.go common/core.go

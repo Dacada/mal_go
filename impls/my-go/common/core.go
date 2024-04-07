@@ -52,6 +52,14 @@ func assert_list_or_vec_arg(arg MalType) ([]MalType, error) {
 	return res, make_type_err(arg, res)
 }
 
+func assert_hashmap_arg(arg MalType) (MalTypeHashMap, error) {
+	res, ok := arg.(MalTypeHashMap)
+	if ok {
+		return res, nil
+	}
+	return res, make_type_err(arg, res)
+}
+
 func assert_atom_arg(arg MalType) (MalTypeAtom, error) {
 	res, ok := arg.(MalTypeAtom)
 	if ok {
@@ -633,6 +641,306 @@ func rest_fun(args []MalType) (MalType, error) {
 	return MalTypeList(arr[1:]), nil
 }
 
+func throw_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	return nil, MalTypeError{args[0]}
+}
+
+func apply_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 2, -1)
+	if err != nil {
+		return nil, err
+	}
+	fun, err := assert_function_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	lst, err := assert_list_or_vec_arg(args[len(args)-1])
+
+	l := make([]MalType, len(args)-2 + len(lst))
+	i := 0
+	for _, e := range(args[1:len(args)-1]) {
+		l[i] = e
+		i++
+	}
+	for _, e := range(lst) {
+		l[i] = e
+		i++
+	}
+	return fun(l)
+}
+
+func map_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 2, 2)
+	if err != nil {
+		return nil, err
+	}
+	fun, err := assert_function_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	lst, err := assert_list_or_vec_arg(args[1])
+	if err != nil {
+		return nil, err
+	}
+	
+	res := make([]MalType, len(lst))
+	i := 0
+	for _, e := range(lst) {
+		args := []MalType{e}
+		res[i], err = fun(args)
+		if err != nil {
+			return nil, err
+		}
+		i += 1
+	}
+
+	return MalTypeList(res), nil
+}
+
+func nil_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	_, ok := args[0].(MalTypeNil)
+	return MalTypeBoolean(ok), nil
+}
+
+func true_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	v, ok := args[0].(MalTypeBoolean)
+	return MalTypeBoolean(ok && bool(v)), nil
+}
+
+func false_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	v, ok := args[0].(MalTypeBoolean)
+	return MalTypeBoolean(ok && !bool(v)), nil
+}
+
+func symbol_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	_, ok := args[0].(MalTypeSymbol)
+	return MalTypeBoolean(ok), nil
+}
+
+func symbol_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	str, err := assert_string_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	return MalTypeSymbol(str), nil
+}
+
+func keyword_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	kwrd, ok := args[0].(MalTypeKeyword)
+	if ok {
+		return kwrd, nil
+	}
+	str, ok := args[0].(MalTypeString)
+	if ok {
+		return MalTypeKeyword(str), nil
+	}
+	return nil, errors.New(fmt.Sprintf("expected argument of type %T or %T but found %T", kwrd, str, args[0]))
+}
+
+func keyword_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	_, ok := args[0].(MalTypeKeyword)
+	return MalTypeBoolean(ok), nil
+}
+
+func vector_fun(args []MalType) (MalType, error) {
+	return MalTypeVector(args), nil
+}
+
+func vector_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	_, ok := args[0].(MalTypeVector)
+	return MalTypeBoolean(ok), nil
+}
+
+func sequential_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	_, ok_list := args[0].(MalTypeList)
+	_, ok_vec := args[0].(MalTypeVector)
+	return MalTypeBoolean(ok_list || ok_vec), nil
+}
+
+func hash_map_fun(args []MalType) (MalType, error) {
+	if len(args) % 2 != 0 {
+		return nil, errors.New("expected an even number of arguments")
+	}
+	m := make(MalTypeHashMap)
+	for i := 0; i<len(args)-1; i+=2 {
+		key := args[i]
+		val := args[i+1]
+		println(key, val)
+		m[key] = val
+	}
+	return m, nil
+}
+
+func map_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	_, ok := args[0].(MalTypeHashMap)
+	return MalTypeBoolean(ok), nil
+}
+
+func assoc_fun(args []MalType) (MalType, error) {
+	if len(args) % 2 != 1 {
+		return nil, errors.New("expected an odd number of arguments")
+	}
+	orig, err := assert_hashmap_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	m := make(MalTypeHashMap)
+	for k,v := range orig {
+		m[k] = v
+	}
+	for i := 1; i < len(args)-1; i+=2 {
+		k := args[i]
+		v := args[i+1]
+		m[k] = v
+	}
+	return m, nil
+}
+
+func dissoc_fun(args []MalType) (MalType, error) {
+	orig, err := assert_hashmap_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	m := make(MalTypeHashMap)
+	for k, v := range orig {
+		skip := false
+		for _, kk := range args[1:] {
+			args := make([]MalType, 2)
+			args[0] = k
+			args[1] = kk
+			cmp, err := eq_fun(args)
+			if err != nil {
+				return nil, err
+			}
+			if cmp.(MalTypeBoolean) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+		m[k] = v
+	}
+	return m, nil
+}
+
+func get_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 2, 2)
+	if err != nil {
+		return nil, err
+	}
+	_, ok := args[0].(MalTypeNil)
+	if ok {
+		return MalTypeNil{}, nil
+	}
+	m, err := assert_hashmap_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	k := args[1]
+	v, ok := m[k]
+	if !ok {
+		return MalTypeNil{}, nil
+	} else {
+		return v, nil
+	}
+}
+
+func contains_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 2, 2)
+	if err != nil {
+		return nil, err
+	}
+	m, err := assert_hashmap_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	k := args[1]
+	_, ok := m[k]
+	return MalTypeBoolean(ok), nil
+}
+
+func keys_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	m, err := assert_hashmap_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	l := make(MalTypeList, len(m))
+	i := 0
+	for k := range(m) {
+		l[i] = k
+		i += 1
+	}
+	return l, nil
+}
+
+func vals_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	m, err := assert_hashmap_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+	l := make(MalTypeList, len(m))
+	i := 0
+	for _,v := range(m) {
+		l[i] = v
+		i += 1
+	}
+	return l, nil
+}
+
 func Ns() map[string]func([]MalType)(MalType, error) {
 	res := make(map[string]func([]MalType)(MalType, error))
 	res["+"] = sum_fun
@@ -665,5 +973,26 @@ func Ns() map[string]func([]MalType)(MalType, error) {
 	res["nth"] = nth_fun
 	res["first"] = first_fun
 	res["rest"] = rest_fun
+	res["throw"] = throw_fun
+	res["apply"] = apply_fun
+	res["map"] = map_fun
+	res["nil?"] = nil_pred_fun
+	res["true?"] = true_pred_fun
+	res["false?"] = false_pred_fun
+	res["symbol?"] = symbol_pred_fun
+	res["symbol"] = symbol_fun
+	res["keyword"] = keyword_fun
+	res["keyword?"] = keyword_pred_fun
+	res["vector"] = vector_fun
+	res["vector?"] = vector_pred_fun
+	res["sequential?"] = sequential_pred_fun
+	res["hash-map"] = hash_map_fun
+	res["map?"] = map_pred_fun
+	res["assoc"] = assoc_fun
+	res["dissoc"] = dissoc_fun
+	res["get"] = get_fun
+	res["contains?"] = contains_pred_fun
+	res["keys"] = keys_fun
+	res["vals"] = vals_fun
 	return res
 }

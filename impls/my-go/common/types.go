@@ -20,3 +20,9 @@ type MalTypeTCOFunction struct {
 	Fn MalTypeFunction
 }
 type MalTypeAtom *MalType
+type MalTypeError struct {
+	InnerMalType MalType
+}
+func (x MalTypeError) Error() string {
+	return PrStr(x.InnerMalType, false)
+}
