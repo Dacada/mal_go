@@ -33,21 +33,21 @@ func eval_ast(ast common.MalType, env common.Env) (common.MalType, error) {
 		}
 		return v, nil
 	case common.MalTypeList:
-		new_list, err := eval_ast_list(a, env)
+		new_list, err := eval_ast_list(a.List, env)
 		if err != nil {
 			return nil, err
 		}
-		return common.MalTypeList(new_list), nil
+		return common.NewMalList(new_list), nil
 	case common.MalTypeVector:
-		new_list, err := eval_ast_list(a, env)
+		new_list, err := eval_ast_list(a.Vector, env)
 		if err != nil {
 			return nil, err
 		}
-		return common.MalTypeVector(new_list), nil
+		return common.NewMalVector(new_list), nil
 	case common.MalTypeHashMap:
 		var keys []common.MalType
 		var values []common.MalType
-		for key, value := range a {
+		for key, value := range a.HashMap {
 			keys = append(keys, key)
 			values = append(values, value)
 		}
@@ -59,12 +59,12 @@ func eval_ast(ast common.MalType, env common.Env) (common.MalType, error) {
 		if err != nil {
 			return nil, err
 		}
-		new_map := make(common.MalTypeHashMap)
+		new_map := make(map[common.MalType]common.MalType)
 		for i, key := range new_keys {
 			value := new_values[i]
 			new_map[key] = value
 		}
-		return common.MalTypeHashMap(new_map), nil
+		return common.NewMalHashMap(new_map), nil
 	default:
 		return ast, nil
 	}
@@ -75,15 +75,15 @@ func apply(lst common.MalTypeList, env common.Env) (common.MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	evaluated_list := evaluated.(common.MalTypeList)
+	evaluated_list := evaluated.(common.MalTypeList).List
 	fun, ok := evaluated_list[0].(common.MalTypeFunction)
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("cannot call object of type %T", evaluated_list[0]))
 	}
-	return fun(evaluated_list[1:])
+	return fun.Func(evaluated_list[1:])
 }
 
-func apply_def(lst common.MalTypeList, env common.Env) (common.MalType, error) {
+func apply_def(lst []common.MalType, env common.Env) (common.MalType, error) {
 	if len(lst) != 2 {
 		return nil, errors.New(fmt.Sprintf("invalid number of parameters for def! call, expected 2 but got %d", len(lst)))
 	}
@@ -99,7 +99,7 @@ func apply_def(lst common.MalTypeList, env common.Env) (common.MalType, error) {
 	return second, nil
 }
 
-func apply_let(lst common.MalTypeList, env common.Env) (common.MalType, error) {
+func apply_let(lst []common.MalType, env common.Env) (common.MalType, error) {
 	if len(lst) != 2 {
 		return nil, errors.New(fmt.Sprintf("invalid number of parameters for let* call, expected 2 but got %d", len(lst)))
 	}
@@ -108,9 +108,9 @@ func apply_let(lst common.MalTypeList, env common.Env) (common.MalType, error) {
 	var bindings []common.MalType
 	switch b := lst[0].(type) {
 	case common.MalTypeList:
-		bindings = []common.MalType(b)
+		bindings = b.List
 	case common.MalTypeVector:
-		bindings = []common.MalType(b)
+		bindings = b.Vector
 	default:
 		return nil, errors.New(fmt.Sprintf("expected sequence in call to let* but got %T", lst[0]))
 	}
@@ -135,14 +135,14 @@ func apply_let(lst common.MalTypeList, env common.Env) (common.MalType, error) {
 func EVAL(ast common.MalType, env common.Env) (common.MalType, error) {
 	switch l := ast.(type) {
 	case common.MalTypeList:
-		if len(l) == 0 {
+		if len(l.List) == 0 {
 			return ast, nil
 		} else {
-			switch l[0] {
+			switch l.List[0] {
 			case common.MalTypeSymbol("def!"):
-				return apply_def(l[1:], env)
+				return apply_def(l.List[1:], env)
 			case common.MalTypeSymbol("let*"):
-				return apply_let(l[1:], env)
+				return apply_let(l.List[1:], env)
 			default:
 				return apply(l, env)
 			}
@@ -252,10 +252,10 @@ func main() {
 	defer rl.Close()
 
 	repl_env := common.NewEnv(nil)
-	repl_env.Set(common.MalTypeSymbol("+"), common.MalTypeFunction(sum_fun))
-	repl_env.Set(common.MalTypeSymbol("-"), common.MalTypeFunction(sub_fun))
-	repl_env.Set(common.MalTypeSymbol("*"), common.MalTypeFunction(mul_fun))
-	repl_env.Set(common.MalTypeSymbol("/"), common.MalTypeFunction(div_fun))
+	repl_env.Set(common.MalTypeSymbol("+"), common.NewMalFunction(sum_fun))
+	repl_env.Set(common.MalTypeSymbol("-"), common.NewMalFunction(sub_fun))
+	repl_env.Set(common.MalTypeSymbol("*"), common.NewMalFunction(mul_fun))
+	repl_env.Set(common.MalTypeSymbol("/"), common.NewMalFunction(div_fun))
 					
 	for {
 		line, err := rl.Readline()

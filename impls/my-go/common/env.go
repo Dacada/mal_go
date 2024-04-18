@@ -20,7 +20,7 @@ func NewEnvBind(outer *Env, binds []MalTypeSymbol, exprs []MalType) (Env, error)
 	
 	for i := 0; i < len(binds); i++ {
 		if variadic {
-			env.Set(binds[i], MalTypeList(exprs[i-1:]))
+			env.Set(binds[i], NewMalList(exprs[i-1:]))
 			break
 		}
 		if binds[i] == MalTypeSymbol("&") {

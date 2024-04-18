@@ -33,21 +33,21 @@ func eval_ast(ast common.MalType, env map[common.MalTypeSymbol]common.MalTypeFun
 		}
 		return v, nil
 	case common.MalTypeList:
-		new_list, err := eval_ast_list(a, env)
+		new_list, err := eval_ast_list(a.List, env)
 		if err != nil {
 			return nil, err
 		}
-		return common.MalTypeList(new_list), nil
+		return common.NewMalList(new_list), nil
 	case common.MalTypeVector:
-		new_list, err := eval_ast_list(a, env)
+		new_list, err := eval_ast_list(a.Vector, env)
 		if err != nil {
 			return nil, err
 		}
-		return common.MalTypeVector(new_list), nil
+		return common.NewMalVector(new_list), nil
 	case common.MalTypeHashMap:
 		var keys []common.MalType
 		var values []common.MalType
-		for key, value := range a {
+		for key, value := range a.HashMap {
 			keys = append(keys, key)
 			values = append(values, value)
 		}
@@ -59,12 +59,12 @@ func eval_ast(ast common.MalType, env map[common.MalTypeSymbol]common.MalTypeFun
 		if err != nil {
 			return nil, err
 		}
-		new_map := make(common.MalTypeHashMap)
+		new_map := make(map[common.MalType]common.MalType)
 		for i, key := range new_keys {
 			value := new_values[i]
 			new_map[key] = value
 		}
-		return common.MalTypeHashMap(new_map), nil
+		return common.NewMalHashMap(new_map), nil
 	default:
 		return ast, nil
 	}
@@ -73,19 +73,19 @@ func eval_ast(ast common.MalType, env map[common.MalTypeSymbol]common.MalTypeFun
 func EVAL(ast common.MalType, env map[common.MalTypeSymbol]common.MalTypeFunction) (common.MalType, error) {
 	switch l := ast.(type) {
 	case common.MalTypeList:
-		if len(l) == 0 {
+		if len(l.List) == 0 {
 			return ast, nil
 		} else {
 			evaluated, err := eval_ast(ast, env)
 			if err != nil {
 				return nil, err
 			}
-			evaluated_list := evaluated.(common.MalTypeList)
+			evaluated_list := evaluated.(common.MalTypeList).List
 			fun, ok := evaluated_list[0].(common.MalTypeFunction)
 			if !ok {
 				return nil, errors.New(fmt.Sprintf("cannot call object of type %T", evaluated_list[0]))
 			}
-			return fun(evaluated_list[1:])
+			return fun.Func(evaluated_list[1:])
 		}
 	default:
 		return eval_ast(ast, env)
@@ -192,10 +192,10 @@ func main() {
 	defer rl.Close()
 
 	repl_env := map[common.MalTypeSymbol]common.MalTypeFunction {
-		common.MalTypeSymbol("+"): sum_fun,
-		common.MalTypeSymbol("-"): sub_fun,
-		common.MalTypeSymbol("*"): mul_fun,
-		common.MalTypeSymbol("/"): div_fun,
+		common.MalTypeSymbol("+"): common.NewMalFunction(sum_fun),
+		common.MalTypeSymbol("-"): common.NewMalFunction(sub_fun),
+		common.MalTypeSymbol("*"): common.NewMalFunction(mul_fun),
+		common.MalTypeSymbol("/"): common.NewMalFunction(div_fun),
 	}
 
 	for {

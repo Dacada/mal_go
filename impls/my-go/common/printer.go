@@ -48,8 +48,8 @@ func PrStr(input MalType, print_readably bool) string {
 
 func prAtom(input MalTypeAtom, print_readably bool) string {
 	var l MalTypeList
-	l = append(l, MalTypeSymbol("atom"))
-	l = append(l, *input)
+	l.List = append(l.List, MalTypeSymbol("atom"))
+	l.List = append(l.List, *input.Ptr)
 	return prList(l, print_readably)
 }
 
@@ -87,13 +87,13 @@ func prStr(input MalTypeString, print_readably bool) string {
 func prMap(input MalTypeHashMap, print_readably bool) string {
 	var builder strings.Builder
 	builder.WriteByte('{')
-	for k := range input {
+	for k := range input.HashMap {
 		builder.WriteString(PrStr(k, print_readably))
 		builder.WriteByte(' ')
-		builder.WriteString(PrStr(input[k], print_readably))
+		builder.WriteString(PrStr(input.HashMap[k], print_readably))
 		builder.WriteByte(' ')
 	}
-	if len(input) > 0 {
+	if len(input.HashMap) > 0 {
 		buf := builder.String()
 		buf = buf[:len(buf)-1]
 		builder.Reset()
@@ -111,11 +111,11 @@ func prList(input MalType, print_readably bool) string {
 	case MalTypeList:
 		start = '('
 		end = ')'
-		list = []MalType(input.(MalTypeList))
+		list = []MalType(input.(MalTypeList).List)
 	case MalTypeVector:
 		start = '['
 		end = ']'
-		list = []MalType(input.(MalTypeVector))
+		list = []MalType(input.(MalTypeVector).Vector)
 	default:
 		panic("invalid list type")
 	}

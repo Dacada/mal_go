@@ -242,7 +242,7 @@ func readMeta(tokens *tokenizer) (MalType, error) {
 	elements = append(elements, MalTypeSymbol("with-meta"))
 	elements = append(elements, next2)
 	elements = append(elements, next1)
-	return MalTypeList(elements), nil
+	return NewMalList(elements), nil
 }
 
 func readQuote(tokens *tokenizer) (MalType, error) {
@@ -275,7 +275,7 @@ func readQuote(tokens *tokenizer) (MalType, error) {
 	elements := []MalType{}
 	elements = append(elements, MalTypeSymbol(quote))
 	elements = append(elements, next)
-	return MalTypeList(elements), nil
+	return NewMalList(elements), nil
 }
 
 func readMap(tokens *tokenizer) (MalType, error) {
@@ -319,7 +319,7 @@ func readMap(tokens *tokenizer) (MalType, error) {
 		return nil, err
 	}
 
-	return MalTypeHashMap(elements), nil
+	return NewMalHashMap(elements), nil
 }
 
 func readList(tokens *tokenizer) (MalType, error) {
@@ -354,9 +354,9 @@ func readList(tokens *tokenizer) (MalType, error) {
 	}
 
 	if start == "[" {
-		return MalTypeVector(elements), nil
+		return NewMalVector(elements), nil
 	}
-	return MalTypeList(elements), nil
+	return NewMalList(elements), nil
 }
 
 func readAtom(tokens *tokenizer) (MalType, error) {
@@ -368,7 +368,7 @@ func readAtom(tokens *tokenizer) (MalType, error) {
 	if strings.HasPrefix(token, "\"") {
 		return MalTypeString(token[1:len(token)-1]), nil
 	} else if strings.HasPrefix(token, ":") {
-		return MalTypeKeyword(token[1:len(token)]), nil
+		return MalTypeKeyword(token[1:]), nil
 	} else if token == "nil" {
 		return MalTypeNil{}, nil
 	} else if token == "true" {

@@ -33,21 +33,21 @@ func eval_ast(ast common.MalType, env common.Env) (common.MalType, error) {
 		}
 		return v, nil
 	case common.MalTypeList:
-		new_list, err := eval_ast_list(a, env)
+		new_list, err := eval_ast_list(a.List, env)
 		if err != nil {
 			return nil, err
 		}
-		return common.MalTypeList(new_list), nil
+		return common.NewMalList(new_list), nil
 	case common.MalTypeVector:
-		new_list, err := eval_ast_list(a, env)
+		new_list, err := eval_ast_list(a.Vector, env)
 		if err != nil {
 			return nil, err
 		}
-		return common.MalTypeVector(new_list), nil
+		return common.NewMalVector(new_list), nil
 	case common.MalTypeHashMap:
 		var keys []common.MalType
 		var values []common.MalType
-		for key, value := range a {
+		for key, value := range a.HashMap {
 			keys = append(keys, key)
 			values = append(values, value)
 		}
@@ -59,12 +59,12 @@ func eval_ast(ast common.MalType, env common.Env) (common.MalType, error) {
 		if err != nil {
 			return nil, err
 		}
-		new_map := make(common.MalTypeHashMap)
+		new_map := make(map[common.MalType]common.MalType)
 		for i, key := range new_keys {
 			value := new_values[i]
 			new_map[key] = value
 		}
-		return common.MalTypeHashMap(new_map), nil
+		return common.NewMalHashMap(new_map), nil
 	default:
 		return ast, nil
 	}
@@ -75,10 +75,10 @@ func apply(lst common.MalTypeList, env common.Env) (common.MalType, common.Env, 
 	if err != nil {
 		return nil, env, false, err
 	}
-	evaluated_list := evaluated.(common.MalTypeList)
+	evaluated_list := evaluated.(common.MalTypeList).List
 	fun, ok := evaluated_list[0].(common.MalTypeFunction)
 	if ok {
-		ret, err := fun(evaluated_list[1:])
+		ret, err := fun.Func(evaluated_list[1:])
 		return ret, env, false, err
 	}
 	
@@ -94,7 +94,7 @@ func apply(lst common.MalTypeList, env common.Env) (common.MalType, common.Env, 
 	return nil, env, false, errors.New(fmt.Sprintf("cannot call object of type %T", evaluated_list[0]))
 }
 
-func apply_def(lst common.MalTypeList, env common.Env) (common.MalType, error) {
+func apply_def(lst []common.MalType, env common.Env) (common.MalType, error) {
 	if len(lst) != 2 {
 		return nil, errors.New(fmt.Sprintf("invalid number of parameters for def! call, expected 2 but got %d", len(lst)))
 	}
@@ -110,7 +110,7 @@ func apply_def(lst common.MalTypeList, env common.Env) (common.MalType, error) {
 	return second, nil
 }
 
-func apply_let(lst common.MalTypeList, env common.Env) (common.MalType, common.Env, error) {
+func apply_let(lst []common.MalType, env common.Env) (common.MalType, common.Env, error) {
 	if len(lst) != 2 {
 		return nil, env, errors.New(fmt.Sprintf("invalid number of parameters for let* call, expected 2 but got %d", len(lst)))
 	}
@@ -119,9 +119,9 @@ func apply_let(lst common.MalTypeList, env common.Env) (common.MalType, common.E
 	var bindings []common.MalType
 	switch b := lst[0].(type) {
 	case common.MalTypeList:
-		bindings = []common.MalType(b)
+		bindings = b.List
 	case common.MalTypeVector:
-		bindings = []common.MalType(b)
+		bindings = b.Vector
 	default:
 		return nil, env, errors.New(fmt.Sprintf("expected sequence in call to let* but got %T", lst[0]))
 	}
@@ -143,17 +143,19 @@ func apply_let(lst common.MalTypeList, env common.Env) (common.MalType, common.E
 	return lst[1], new_env, nil
 }
 
-func apply_do(lst common.MalTypeList, env common.Env) (common.MalType, error) {
-	for _, element := range lst[:len(lst)-1] {
-		_, err := EVAL(element, env)
+func apply_do(lst []common.MalType, env common.Env) (common.MalType, error) {
+	var last common.MalType = common.MalTypeNil{}
+	for _, element := range lst {
+		res, err := EVAL(element, env)
 		if err != nil {
 			return nil, err
 		}
+		last = res
 	}
-	return lst[len(lst)-1], nil
+	return last, nil
 }
 
-func apply_if(lst common.MalTypeList, env common.Env) (common.MalType, error) {
+func apply_if(lst []common.MalType, env common.Env) (common.MalType, error) {
 	if len(lst) < 2 || len(lst) > 3 {
 		return nil, errors.New(fmt.Sprintf("invalid number of parameters for if call, expected 2 or 3 but got %d", len(lst)))
 	}
@@ -173,13 +175,9 @@ func apply_if(lst common.MalTypeList, env common.Env) (common.MalType, error) {
 	}
 }
 
-func apply_fn(lst common.MalTypeList, env common.Env) (common.MalTypeTCOFunction, error) {
-	tco_fn := common.MalTypeTCOFunction{
-		Ast: nil,
-		Params: nil,
-		Env: env,
-		Fn: nil,
-	}
+func apply_fn(lst []common.MalType, env common.Env) (common.MalTypeTCOFunction, error) {
+	tco_fn := common.MalTypeTCOFunction{}
+	tco_fn.Env = env
 	
 	if len(lst) != 2 {
 		return tco_fn, errors.New(fmt.Sprintf("invalid number of parameters for fn* call, expected 2 but got %d", len(lst)))
@@ -189,13 +187,13 @@ func apply_fn(lst common.MalTypeList, env common.Env) (common.MalTypeTCOFunction
 	var names_array []common.MalType
 	names_list, ok := lst[0].(common.MalTypeList)
 	if ok {
-		names_array = []common.MalType(names_list)
+		names_array = names_list.List
 	} else {
 		names_vector, ok := lst[0].(common.MalTypeVector)
 		if !ok {
 			return tco_fn, errors.New(fmt.Sprintf("expected first parameter of fn* to be of type %T or %T but was %T", names_list, names_vector, lst[0]))
 		}
-		names_array = []common.MalType(names_vector)
+		names_array = names_vector.Vector
 	}
 	
 	names := make([]common.MalTypeSymbol, len(names_array))
@@ -208,7 +206,7 @@ func apply_fn(lst common.MalTypeList, env common.Env) (common.MalTypeTCOFunction
 	}
 	tco_fn.Params = names
 
-	tco_fn.Fn = common.MalTypeFunction(func(args []common.MalType) (common.MalType, error) {
+	tco_fn.Fn = common.NewMalFunction(func(args []common.MalType) (common.MalType, error) {
 		new_env, err := common.NewEnvBind(&env, names, args)
 		if err != nil {
 			return nil, err
@@ -223,33 +221,33 @@ func EVAL(ast common.MalType, env common.Env) (common.MalType, error) {
 	for {
 		switch l := ast.(type) {
 		case common.MalTypeList:
-			if len(l) == 0 {
+			if len(l.List) == 0 {
 				return ast, nil
 			} else {
 				var err error
-				switch l[0] {
+				switch l.List[0] {
 				case common.MalTypeSymbol("def!"):
-					return apply_def(l[1:], env)
+					return apply_def(l.List[1:], env)
 				case common.MalTypeSymbol("let*"):
-					ast, env, err = apply_let(l[1:], env)
+					ast, env, err = apply_let(l.List[1:], env)
 					if err != nil {
 						return nil, err
 					}
 					continue
 				case common.MalTypeSymbol("do"):
-					ast, err = apply_do(l[1:], env)
+					ast, err = apply_do(l.List[1:], env)
 					if err != nil {
 						return nil, err
 					}
 					continue
 				case common.MalTypeSymbol("if"):
-					ast, err = apply_if(l[1:], env)
+					ast, err = apply_if(l.List[1:], env)
 					if err != nil {
 						return nil, err
 					}
 					continue
 				case common.MalTypeSymbol("fn*"):
-					return apply_fn(l[1:], env)
+					return apply_fn(l.List[1:], env)
 				default:
 					var loop bool
 					ast, env, loop, err = apply(l, env)
@@ -288,9 +286,9 @@ func rep(input string, env common.Env) (string, error) {
 func main() {
 	repl_env := common.NewEnv(nil)
 	for key, value := range common.Ns() {
-		repl_env.Set(common.MalTypeSymbol(key), common.MalTypeFunction(value))
+		repl_env.Set(common.MalTypeSymbol(key), common.NewMalFunction(value))
 	}
-	repl_env.Set(common.MalTypeSymbol("eval"), common.MalTypeFunction(func(args []common.MalType) (common.MalType, error) {
+	repl_env.Set(common.MalTypeSymbol("eval"), common.NewMalFunction(func(args []common.MalType) (common.MalType, error) {
 		if len(args) != 1 {
 			return nil, errors.New("expected exactly 1 argument")
 		}
@@ -306,7 +304,7 @@ func main() {
 			argv[i] = common.MalTypeString(arg)
 		}
 	}
-	repl_env.Set(common.MalTypeSymbol("*ARGV*"), common.MalTypeList(argv))
+	repl_env.Set(common.MalTypeSymbol("*ARGV*"), common.NewMalList(argv))
 
 	if len(os.Args) > 1 {
 		_, err := rep(fmt.Sprintf("(load-file \"%s\")", os.Args[1]), repl_env)

@@ -43,13 +43,13 @@ func assert_list_arg(arg MalType) (MalTypeList, error) {
 func assert_list_or_vec_arg(arg MalType) ([]MalType, error) {
 	res, ok := arg.(MalTypeList)
 	if ok {
-		return res, nil
+		return res.List, nil
 	}
 	res_vec, ok := arg.(MalTypeVector)
 	if ok {
-		return res_vec, nil
+		return res_vec.Vector, nil
 	}
-	return res, make_type_err(arg, res)
+	return nil, make_type_err(arg, res)
 }
 
 func assert_hashmap_arg(arg MalType) (MalTypeHashMap, error) {
@@ -231,7 +231,7 @@ func println_fun(args []MalType) (MalType, error) {
 }
 
 func list_fun(args []MalType) (MalType, error) {
-	return MalTypeList(args), nil
+	return NewMalList(args), nil
 }
 
 func list_pred_fun(args []MalType) (MalType, error) {
@@ -254,9 +254,9 @@ func count_fun(args []MalType) (MalType, error) {
 	}
 	switch l := args[0].(type) {
 	case MalTypeList:
-		return MalTypeInteger(len(l)), nil
+		return MalTypeInteger(len(l.List)), nil
 	case MalTypeVector:
-		return MalTypeInteger(len(l)), nil
+		return MalTypeInteger(len(l.Vector)), nil
 	case MalTypeNil:
 		return MalTypeInteger(0), nil
 	default:
@@ -275,9 +275,9 @@ func empty_pred_fun(args []MalType) (MalType, error) {
 func get_as_mal_array(x MalType) ([]MalType, bool) {
 	switch y := x.(type) {
 	case MalTypeList:
-		return []MalType(MalTypeList(y)), true
+		return y.List, true
 	case MalTypeVector:
-		return []MalType(MalTypeVector(y)), true
+		return y.Vector, true
 	default:
 		return nil, false
 	}
@@ -323,11 +323,11 @@ func eq_fun(args []MalType) (MalType, error) {
 		if !ok {
 			return MalTypeBoolean(false), nil
 		}
-		if len(first_map) != len(second_map) {
+		if len(first_map.HashMap) != len(second_map.HashMap) {
 			return MalTypeBoolean(false), nil
 		}
-		for key, value1 := range first_map {
-			value2, ok := second_map[key]
+		for key, value1 := range first_map.HashMap {
+			value2, ok := second_map.HashMap[key]
 			if !ok {
 				return MalTypeBoolean(false), nil
 			}
@@ -462,17 +462,17 @@ func atom_fun(args []MalType) (MalType, error) {
 		return nil, err
 	}
 	arg := args[0]
-	return MalTypeAtom(&arg), nil
+	return MalTypeAtom{&arg}, nil
 }
 
 func get_arg_as_atom(args []MalType) (MalTypeAtom, error) {
 	err := assert_len_args(args, 1, 1)
 	if err != nil {
-		return nil, err
+		return MalTypeAtom{}, err
 	}
 	arg_atom, err := assert_atom_arg(args[0])
 	if err != nil {
-		return nil, err
+		return MalTypeAtom{}, err
 	}
 	return arg_atom, nil
 }
@@ -488,7 +488,7 @@ func deref_fun(args []MalType) (MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	return *atom, nil
+	return *atom.Ptr, nil
 }
 
 func reset_fun(args []MalType) (MalType, error) {
@@ -500,7 +500,7 @@ func reset_fun(args []MalType) (MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	*atom = args[1]
+	*atom.Ptr = args[1]
 	return args[1], nil
 }
 
@@ -520,15 +520,15 @@ func swap_fun(args []MalType) (MalType, error) {
 	}
 
 	new_args := make([]MalType, len(args)-1)
-	new_args[0] = *atom
+	new_args[0] = *atom.Ptr
 	for i := 0; i<len(args)-2; i++ {
 		new_args[i+1] = args[i+2]
 	}
-	res, err := fun(new_args)
+	res, err := fun.Func(new_args)
 	if err != nil {
 		return nil, err
 	}
-	*atom = res
+	*atom.Ptr = res
 	return res, nil
 }
 
@@ -545,7 +545,7 @@ func cons_fun(args []MalType) (MalType, error) {
 	res := make([]MalType, len(arr)+1)
 	copy(res[1:], arr)
 	res[0] = args[0]
-	return MalTypeList(res), nil
+	return NewMalList(res), nil
 }
 
 func concat_fun(args []MalType) (MalType, error) {
@@ -568,7 +568,7 @@ func concat_fun(args []MalType) (MalType, error) {
 		}
 	}
 
-	return MalTypeList(res), nil
+	return NewMalList(res), nil
 }
 
 func vec_fun(args []MalType) (MalType, error) {
@@ -583,7 +583,7 @@ func vec_fun(args []MalType) (MalType, error) {
 
 	res := make([]MalType, len(arr))
 	copy(res, arr)
-	return MalTypeVector(res), nil
+	return NewMalVector(res), nil
 }
 
 func nth_fun(args []MalType) (MalType, error) {
@@ -629,16 +629,16 @@ func rest_fun(args []MalType) (MalType, error) {
 		return nil, err
 	}
 	if arg_is_nil(args[0]) {
-		return MalTypeList([]MalType{}), nil
+		return NewMalList([]MalType{}), nil
 	}
 	arr, err := assert_list_or_vec_arg(args[0])
 	if err != nil {
 		return nil, err
 	}
 	if len(arr) == 0 {
-		return MalTypeList([]MalType{}), nil
+		return NewMalList([]MalType{}), nil
 	}
-	return MalTypeList(arr[1:]), nil
+	return NewMalList(arr[1:]), nil
 }
 
 func throw_fun(args []MalType) (MalType, error) {
@@ -670,7 +670,7 @@ func apply_fun(args []MalType) (MalType, error) {
 		l[i] = e
 		i++
 	}
-	return fun(l)
+	return fun.Func(l)
 }
 
 func map_fun(args []MalType) (MalType, error) {
@@ -691,14 +691,14 @@ func map_fun(args []MalType) (MalType, error) {
 	i := 0
 	for _, e := range(lst) {
 		args := []MalType{e}
-		res[i], err = fun(args)
+		res[i], err = fun.Func(args)
 		if err != nil {
 			return nil, err
 		}
 		i += 1
 	}
 
-	return MalTypeList(res), nil
+	return NewMalList(res), nil
 }
 
 func nil_pred_fun(args []MalType) (MalType, error) {
@@ -775,7 +775,7 @@ func keyword_pred_fun(args []MalType) (MalType, error) {
 }
 
 func vector_fun(args []MalType) (MalType, error) {
-	return MalTypeVector(args), nil
+	return NewMalVector(args), nil
 }
 
 func vector_pred_fun(args []MalType) (MalType, error) {
@@ -801,14 +801,14 @@ func hash_map_fun(args []MalType) (MalType, error) {
 	if len(args) % 2 != 0 {
 		return nil, errors.New("expected an even number of arguments")
 	}
-	m := make(MalTypeHashMap)
+	m := make(map[MalType]MalType)
 	for i := 0; i<len(args)-1; i+=2 {
 		key := args[i]
 		val := args[i+1]
 		println(key, val)
 		m[key] = val
 	}
-	return m, nil
+	return NewMalHashMap(m), nil
 }
 
 func map_pred_fun(args []MalType) (MalType, error) {
@@ -828,8 +828,8 @@ func assoc_fun(args []MalType) (MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := make(MalTypeHashMap)
-	for k,v := range orig {
+	m := make(map[MalType]MalType)
+	for k,v := range orig.HashMap {
 		m[k] = v
 	}
 	for i := 1; i < len(args)-1; i+=2 {
@@ -837,7 +837,7 @@ func assoc_fun(args []MalType) (MalType, error) {
 		v := args[i+1]
 		m[k] = v
 	}
-	return m, nil
+	return NewMalHashMap(m), nil
 }
 
 func dissoc_fun(args []MalType) (MalType, error) {
@@ -845,8 +845,8 @@ func dissoc_fun(args []MalType) (MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := make(MalTypeHashMap)
-	for k, v := range orig {
+	m := make(map[MalType]MalType)
+	for k, v := range orig.HashMap {
 		skip := false
 		for _, kk := range args[1:] {
 			args := make([]MalType, 2)
@@ -866,7 +866,7 @@ func dissoc_fun(args []MalType) (MalType, error) {
 		}
 		m[k] = v
 	}
-	return m, nil
+	return NewMalHashMap(m), nil
 }
 
 func get_fun(args []MalType) (MalType, error) {
@@ -883,7 +883,7 @@ func get_fun(args []MalType) (MalType, error) {
 		return nil, err
 	}
 	k := args[1]
-	v, ok := m[k]
+	v, ok := m.HashMap[k]
 	if !ok {
 		return MalTypeNil{}, nil
 	} else {
@@ -901,7 +901,7 @@ func contains_pred_fun(args []MalType) (MalType, error) {
 		return nil, err
 	}
 	k := args[1]
-	_, ok := m[k]
+	_, ok := m.HashMap[k]
 	return MalTypeBoolean(ok), nil
 }
 
@@ -914,13 +914,13 @@ func keys_fun(args []MalType) (MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := make(MalTypeList, len(m))
+	l := make([]MalType, len(m.HashMap))
 	i := 0
-	for k := range(m) {
+	for k := range(m.HashMap) {
 		l[i] = k
 		i += 1
 	}
-	return l, nil
+	return NewMalList(l), nil
 }
 
 func vals_fun(args []MalType) (MalType, error) {
@@ -932,13 +932,14 @@ func vals_fun(args []MalType) (MalType, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := make(MalTypeList, len(m))
+	l := make([]MalType, len(m.HashMap))
 	i := 0
-	for _,v := range(m) {
+	for _,v := range(m.HashMap) {
 		l[i] = v
 		i += 1
 	}
-	return l, nil
+	return NewMalList(l), nil
+}
 }
 
 func Ns() map[string]func([]MalType)(MalType, error) {
