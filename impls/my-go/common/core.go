@@ -1,10 +1,12 @@
 package common
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 )
 
 func make_type_err(found MalType, expected MalType) error {
@@ -805,7 +807,6 @@ func hash_map_fun(args []MalType) (MalType, error) {
 	for i := 0; i<len(args)-1; i+=2 {
 		key := args[i]
 		val := args[i+1]
-		println(key, val)
 		m[key] = val
 	}
 	return NewMalHashMap(m), nil
@@ -940,6 +941,208 @@ func vals_fun(args []MalType) (MalType, error) {
 	}
 	return NewMalList(l), nil
 }
+
+func readline_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	pr, err := assert_string_arg(args[0])
+	prompt := string(pr)
+
+	fmt.Printf("%s", prompt)
+	reader := bufio.NewReader(os.Stdin)
+	text, err := reader.ReadString('\n')
+	if err != nil {
+		return MalTypeNil{}, nil
+	}
+	return MalTypeString(strings.TrimSpace(text)), nil
+}
+
+func time_ms_fun(args []MalType) (MalType, error) {
+	return MalTypeInteger(time.Now().UnixMilli()), nil
+}
+
+func meta_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	switch arg := args[0].(type) {
+	case MalTypeFunction:
+		return arg.Meta, nil
+	case MalTypeTCOFunction:
+		return arg.Fn.Meta, nil
+	case MalTypeList:
+		return arg.Meta, nil
+	case MalTypeVector:
+		return arg.Meta, nil
+	case MalTypeHashMap:
+		return arg.Meta, nil
+	}
+
+	var fun MalTypeFunction
+	var tco_fun MalTypeTCOFunction
+	var list MalTypeList
+	var vector MalTypeVector
+	var hashmap MalTypeHashMap
+	return nil, errors.New(fmt.Sprintf("expected argument of type %T/%T/%T/%T/%T but got type %T", fun, tco_fun, list, vector, hashmap, args[0]))
+}
+
+func with_meta_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 2, 2)
+	if err != nil {
+		return nil, err
+	}
+
+	meta := args[1]
+
+	switch arg := args[0].(type) {
+	case MalTypeFunction:
+		arg.Meta = meta
+		return arg, nil
+	case MalTypeTCOFunction:
+		arg.Fn.Meta = meta
+		return arg, nil
+	case MalTypeList:
+		arg.Meta = meta
+		return arg, nil
+	case MalTypeVector:
+		arg.Meta = meta
+		return arg, nil
+	case MalTypeHashMap:
+		arg.Meta = meta
+		return arg, nil
+	}
+
+	var fun MalTypeFunction
+	var tco_fun MalTypeTCOFunction
+	var list MalTypeList
+	var vector MalTypeVector
+	var hashmap MalTypeHashMap
+	return nil, errors.New(fmt.Sprintf("expected argument of type %T/%T/%T/%T/%T but got type %T", fun, tco_fun, list, vector, hashmap, args[0]))
+}
+
+func fn_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	switch arg := args[0].(type) {
+	case MalTypeFunction:
+		return MalTypeBoolean(true), nil
+	case MalTypeTCOFunction:
+		return MalTypeBoolean(!arg.IsMacro), nil
+	}
+
+	return MalTypeBoolean(false), nil
+}
+
+func string_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	_, err = assert_string_arg(args[0])
+	return MalTypeBoolean(err == nil), nil
+}
+
+func number_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+	_, err = assert_int_arg(args[0])
+	return MalTypeBoolean(err == nil), nil
+}
+
+func seq_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	switch arg := args[0].(type) {
+	case MalTypeList:
+		if len(arg.List) == 0 {
+			return MalTypeNil{}, nil
+		}
+		return arg, nil
+	case MalTypeVector:
+		if len(arg.Vector) == 0 {
+			return MalTypeNil{}, nil
+		}
+		return NewMalList(arg.Vector), nil
+	case MalTypeString:
+		if len(arg) == 0 {
+			return MalTypeNil{}, nil
+		}
+		new := make([]MalType, len(arg))
+		for i, c := range(arg) {
+			new[i] = MalTypeString(c)
+		}
+		return NewMalList(new), nil
+	case MalTypeNil:
+		return MalTypeNil{}, nil
+	}
+
+	var list MalTypeList
+	var vec MalTypeVector
+	var str MalTypeString
+	return nil, errors.New(fmt.Sprintf("expected argument of type %T, %T or %T but found %T", list, vec, str, args[0]))
+}
+
+func conj_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	l, err := assert_list_or_vec_arg(args[0])
+	if err != nil {
+		return nil, err
+	}
+
+	new := make([]MalType, len(l)+len(args)-1)
+
+	switch args[0].(type) {
+	case MalTypeList:
+		j := 0
+		for i:=len(args)-1; i>=1; i-- {
+			new[j] = args[i]
+			j += 1
+		}
+		for i:=0; i<len(l); i++ {
+			new[i+len(args)-1] = l[i]
+		}
+		return NewMalList(new), nil
+	case MalTypeVector:
+		for i:=0; i<len(l); i++ {
+			new[i] = l[i]
+		}
+		for i:=1; i<len(args); i++ {
+			new[i-1+len(l)] = args[i]
+		}
+		return NewMalVector(new), nil
+	}
+
+	return nil, err
+}
+
+func macro_pred_fun(args []MalType) (MalType, error) {
+	err := assert_len_args(args, 1, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	switch arg := args[0].(type) {
+	case MalTypeTCOFunction:
+		return MalTypeBoolean(arg.IsMacro), nil
+	}
+
+	return MalTypeBoolean(false), nil
 }
 
 func Ns() map[string]func([]MalType)(MalType, error) {
@@ -995,5 +1198,15 @@ func Ns() map[string]func([]MalType)(MalType, error) {
 	res["contains?"] = contains_pred_fun
 	res["keys"] = keys_fun
 	res["vals"] = vals_fun
+	res["readline"] = readline_fun
+	res["time-ms"] = time_ms_fun
+	res["meta"] = meta_fun
+	res["with-meta"] = with_meta_fun
+	res["fn?"] = fn_pred_fun
+	res["string?"] = string_pred_fun
+	res["number?"] = number_pred_fun
+	res["seq"] = seq_fun
+	res["conj"] = conj_fun
+	res["macro?"] = macro_pred_fun
 	return res
 }
