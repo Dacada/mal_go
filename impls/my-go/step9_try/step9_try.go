@@ -440,11 +440,7 @@ func EVAL(ast common.MalType, env common.Env) (common.MalType, error) {
 					}
 					continue
 				case common.MalTypeSymbol("do"):
-					ast, err = apply_do(l.List[1:], env)
-					if err != nil {
-						return nil, err
-					}
-					continue
+					return apply_do(l.List[1:], env)
 				case common.MalTypeSymbol("if"):
 					ast, err = apply_if(l.List[1:], env)
 					if err != nil {
